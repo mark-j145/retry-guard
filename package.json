@@ -1,0 +1,22 @@
+{
+  "name": "retry-guard",
+  "version": "0.1.0",
+  "description": "Strict-by-default retry policies for TypeScript, with an explicit lenient escape hatch",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "license": "MIT",
+  "author": "mark-j145",
+  "keywords": [
+    "retry",
+    "backoff",
+    "resilience",
+    "typescript"
+  ]
+}
