@@ -102,9 +102,18 @@ await retry(fn, { maxAttempts: 5, signal: controller.signal });
 - If an error is encountered that the active classifier declines to retry,
   `retry` throws that original error immediately, unwrapped.
 
+## Development
+
+Tests use Node's built-in test runner, so there's nothing to install:
+
+```
+npm test
+```
+
 ## Status
 
-Early skeleton. See the roadmap in commit history for what's planned next.
+Early skeleton with test coverage for classification, backoff, and retry.
+See the roadmap in commit history for what's planned next.
 
 ## License
 
