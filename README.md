@@ -75,6 +75,25 @@ await retry(() => callThirdPartyApi(), {
 });
 ```
 
+### Fetch wrapper
+
+`fetch` doesn't throw on a non-2xx response, so the strict classifier never
+sees the status code unless you raise it yourself. `examples/fetch-retry.ts`
+does that in a reusable form:
+
+```ts
+import { fetchWithRetry } from "./examples/fetch-retry.js";
+
+const response = await fetchWithRetry(
+  "https://api.example.com/orders",
+  { method: "POST", body: JSON.stringify(order) },
+  { maxAttempts: 4 },
+);
+```
+
+A `503` gets retried; a `400` throws an `HttpError` (with `.status` and
+`.response`) on the first attempt.
+
 ### Backoff strategies
 
 ```ts
