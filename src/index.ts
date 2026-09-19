@@ -30,6 +30,18 @@ export interface RetryOptions {
   isRetryable?: (error: unknown) => boolean;
   onRetry?: (info: RetryAttemptInfo) => void;
   signal?: AbortSignal;
+  /**
+   * Fail a single attempt if it hasn't settled within this many
+   * milliseconds, so it counts against `maxAttempts` instead of hanging
+   * the whole call. The timeout produces a DOMException named
+   * "TimeoutError", which the strict classifier already treats as
+   * retryable, so it composes with the default settings without extra
+   * config. `fn` itself isn't cancelled: with no signal threaded into it,
+   * this only stops `retry` from waiting on it, so a slow `fn` keeps
+   * running in the background. Pass your own AbortSignal into `fn` via
+   * closure if the underlying operation needs to be cancelled too.
+   */
+  timeoutMs?: number;
 }
 
 export class RetryExhaustedError extends Error {
@@ -63,11 +75,32 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
+function runWithTimeout<T>(fn: () => Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new DOMException(`attempt timed out after ${ms}ms`, "TimeoutError"));
+    }, ms);
+    fn().then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export async function retry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T> {
-  const { maxAttempts, backoff = exponential(), lenient = false, isRetryable, onRetry, signal } = options;
+  const { maxAttempts, backoff = exponential(), lenient = false, isRetryable, onRetry, signal, timeoutMs } = options;
 
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
     throw new RangeError("maxAttempts must be an integer >= 1");
+  }
+  if (timeoutMs !== undefined && !(Number.isFinite(timeoutMs) && timeoutMs > 0)) {
+    throw new RangeError("timeoutMs must be a positive number");
   }
 
   const canRetry = isRetryable ?? (lenient ? () => true : isSafeToRetry);
@@ -75,7 +108,7 @@ export async function retry<T>(fn: () => Promise<T>, options: RetryOptions): Pro
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     signal?.throwIfAborted();
     try {
-      return await fn();
+      return await (timeoutMs === undefined ? fn() : runWithTimeout(fn, timeoutMs));
     } catch (error) {
       const isLastAttempt = attempt >= maxAttempts;
       if (isLastAttempt) {

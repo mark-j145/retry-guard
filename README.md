@@ -107,6 +107,24 @@ await retry(fn, {
 });
 ```
 
+### Per-attempt timeout
+
+```ts
+await retry(() => fetch("https://api.example.com/orders"), {
+  maxAttempts: 4,
+  timeoutMs: 2000,
+});
+```
+
+If a single attempt takes longer than `timeoutMs`, it's failed with a
+`DOMException` named `"TimeoutError"` and counted against `maxAttempts`. The
+strict classifier already treats that error as retryable, so this composes
+with the default settings without any extra config. Note that `fn` isn't
+cancelled when it times out — there's no signal threaded into it — so a slow
+attempt keeps running in the background even though `retry` has moved on. If
+the underlying operation needs real cancellation, wire your own
+`AbortController` into `fn` via closure.
+
 ### Cancellation
 
 ```ts

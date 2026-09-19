@@ -148,6 +148,40 @@ test("aborts an in-progress wait when the signal fires", async () => {
   assertEqual(calls, 1);
 });
 
+test("timeoutMs fails an attempt that never settles, and it counts as a retryable timeout", async () => {
+  let calls = 0;
+  const result = await retry(
+    () =>
+      new Promise<string>((resolve) => {
+        calls++;
+        if (calls < 2) return; // never settles; the timeout has to fire
+        resolve("ok");
+      }),
+    { maxAttempts: 3, backoff: fixed(0), timeoutMs: 5 },
+  );
+  assertEqual(result, "ok");
+  assertEqual(calls, 2);
+});
+
+test("timeoutMs does not cut short an attempt that settles in time", async () => {
+  let calls = 0;
+  const result = await retry(
+    async () => {
+      calls++;
+      return "ok";
+    },
+    { maxAttempts: 3, timeoutMs: 1000 },
+  );
+  assertEqual(result, "ok");
+  assertEqual(calls, 1);
+});
+
+test("rejects a non-positive or non-finite timeoutMs", async () => {
+  await assertRejects(retry(async () => "ok", { maxAttempts: 1, timeoutMs: 0 }));
+  await assertRejects(retry(async () => "ok", { maxAttempts: 1, timeoutMs: -5 }));
+  await assertRejects(retry(async () => "ok", { maxAttempts: 1, timeoutMs: Infinity }));
+});
+
 test("does not start a new attempt once the signal is already aborted", async () => {
   const controller = new AbortController();
   controller.abort(new Error("cancelled up front"));
